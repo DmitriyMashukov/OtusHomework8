@@ -19,7 +19,7 @@ class Program
 
         return number;
     }
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         try
         {
@@ -29,6 +29,8 @@ class Program
             Console.WriteLine("Введите максимально допустимую длину задачи от 1 до 100.");
             var maxTaskLength = ParseAndValidateInt(Console.ReadLine(), 1, 100);
 
+            var cts = new CancellationTokenSource();
+
             var botClient = new ConsoleBotClient();
             var userRepository = new InMemoryUserRepository();
             var todoRepository = new InMemoryToDoRepository();
@@ -36,7 +38,11 @@ class Program
             var toDoService = new ToDoService(todoRepository, maxTaskCount, maxTaskLength);
             var reportService = new ToDoReportService(todoRepository);
             var handler = new UpdateHandler(userService, toDoService, reportService);
-            botClient.StartReceiving(handler);
+            botClient.StartReceiving(handler, cts.Token);
+
+            Console.ReadLine();
+
+            cts.Cancel();
         }
         catch (Exception ex)
         {

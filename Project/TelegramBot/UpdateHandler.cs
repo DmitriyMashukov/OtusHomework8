@@ -14,7 +14,6 @@ namespace MyOtusProject.Project.TelegramBot
 {
     internal class UpdateHandler : IUpdateHandler
     {
-
         private readonly IUserService _userService;
         private readonly IToDoService _toDoService;
         private readonly IToDoReportService _reportService;
@@ -30,7 +29,7 @@ namespace MyOtusProject.Project.TelegramBot
             if (string.IsNullOrEmpty(str) || string.IsNullOrWhiteSpace(str))
                 throw new ArgumentException("Строка не может быть null, пустой строкой или быть пробелом");
         }
-        public static void DescriptionOfHelp(ITelegramBotClient botClient, Chat chat)
+        private static async Task DescriptionOfHelp(ITelegramBotClient botClient, Chat chat, CancellationToken ct)
         {
             var text = new StringBuilder("Краткая информация о том, как пользоваться программой:" +
                 "\n /start - Команда для начала работы с приложением. С помощью неё вы можете " +
@@ -48,48 +47,53 @@ namespace MyOtusProject.Project.TelegramBot
                 "\n /report - Показывает статистику по прочитанным книгам." +
                 "\n /find - Позволяет найти книги по первому слову в названии. Напишите команду и через пробел укажите начало названия книги." +
                 "\n /exit - Команда для завершения работы приложения.");
-            botClient.SendMessage(chat, text.ToString());
+            await botClient.SendMessage(chat, text.ToString(), ct);
         }
 
-        private void ShowTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user)
+        private async Task ShowTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user, CancellationToken ct)
         {
             var activeTasks = _toDoService.GetActiveByUserId(user.UserId);
 
             if (activeTasks.Count == 0)
             {
-                botClient.SendMessage(chat, "Книг, которые вы читаете в данный момент нет.");
+                await botClient.SendMessage(chat, "Книг, которые вы читаете в данный момент нет.", ct);
             }
             else
             {
-                botClient.SendMessage(chat, "\nСписок книг, которые вы читаете сейчас:");
+                await botClient.SendMessage(chat, "\nСписок книг, которые вы читаете сейчас:", ct);
                 for (int i = 0; i < activeTasks.Count; i++)
                 {
                     var task = activeTasks[i];
-                    botClient.SendMessage(chat, $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}");
+                    await botClient.SendMessage(chat, $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}", ct);
                 }
             }
         }
 
-        private void ShowAllTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user)
+        private async Task ShowAllTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user, CancellationToken ct)
         {
             var allTasks = _toDoService.GetAllByUserId(user.UserId);
 
             if (allTasks.Count == 0)
             {
-                botClient.SendMessage(chat, "У вас пока нет добавленных книг.");
+                await botClient.SendMessage(chat, "У вас пока нет добавленных книг.", ct);
             }
             else
             {
-                botClient.SendMessage(chat, "\nСписок всех ваших книг:");
+                await botClient.SendMessage(chat, "\nСписок всех ваших книг:", ct);
                 foreach (var task in allTasks)
                 {
                     var state = task.State == ToDoItemState.Active ? "(Active)" : "(Completed)";
-                    botClient.SendMessage(chat, $"{state} {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}");
+                    await botClient.SendMessage(chat, $"{state} {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}", ct);
                 }
             }
         }
-
-        public void HandleUpdateAsync(ITelegramBotClient botClient, Update update)
+        public async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken ct)
+        {
+            Console.WriteLine($"Произошла ошибка: {exception.Message}");
+            Console.WriteLine(exception.StackTrace);
+            await Task.CompletedTask;
+        }
+        public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken ct)
         {
             try
             {
@@ -104,8 +108,8 @@ namespace MyOtusProject.Project.TelegramBot
 
                 if (existingUser == null && input != "/start" && input != "/help" && input != "/info")
                 {
-                    botClient.SendMessage(chat, "Для использования приложения необходимо зарегистрироваться. " +
-                        "Введите команду /start \nСписок доступных команд:\n/start \n/help \n/info");
+                    await botClient.SendMessage(chat, "Для использования приложения необходимо зарегистрироваться. " +
+                        "Введите команду /start \nСписок доступных команд:\n/start \n/help \n/info", ct);
                     return;
                 }
 
@@ -113,13 +117,13 @@ namespace MyOtusProject.Project.TelegramBot
                 {
                     case "/start":
                         var registeredUser = _userService.RegisterUser(user.Id, user.Username ?? "Unknown");
-                        botClient.SendMessage(chat, $"Добро пожаловать, {registeredUser.TelegramUserName}! Вы успешно зарегистрированы.");
+                        await botClient.SendMessage(chat, $"Добро пожаловать, {registeredUser.TelegramUserName}! Вы успешно зарегистрированы.", ct);
                         break;
                     case "/help":
-                        DescriptionOfHelp(botClient, chat);
+                        await DescriptionOfHelp(botClient, chat, ct);
                         break;
                     case "/info":
-                        botClient.SendMessage(chat, "Версия программы 1.0. Дата создания: 26.02.2025");
+                        await botClient.SendMessage(chat, "Версия программы 1.0. Дата создания: 26.02.2025", ct);
                         break;
                     case string s when s.StartsWith("/addtask "):
                         if (existingUser == null) return;
@@ -128,15 +132,15 @@ namespace MyOtusProject.Project.TelegramBot
                         ValidateString(taskName);
 
                         var newTask = _toDoService.Add(existingUser, taskName);
-                        botClient.SendMessage(chat, $"Книга '{newTask.Name}' добавлена в список.");
+                        await botClient.SendMessage(chat, $"Книга '{newTask.Name}' добавлена в список.", ct);
                         break;
                     case "/showtasks":
                         if (existingUser != null)
-                            ShowTasksList(botClient, chat, existingUser);
+                            await ShowTasksList(botClient, chat, existingUser, ct);
                         break;
                     case "/showalltasks":
                         if (existingUser != null)
-                            ShowAllTasksList(botClient, chat, existingUser);
+                            await ShowAllTasksList(botClient, chat, existingUser, ct);
                         break;
                     case string s when s.StartsWith("/removetask "):
                         if (existingUser == null) return;
@@ -149,16 +153,16 @@ namespace MyOtusProject.Project.TelegramBot
                             {
                                 var taskToRemove = activeTasks[taskNumber - 1];
                                 _toDoService.Delete(taskToRemove.Id);
-                                botClient.SendMessage(chat, $"Книга '{taskToRemove.Name}' удалена из списка.");
+                                await botClient.SendMessage(chat, $"Книга '{taskToRemove.Name}' удалена из списка.", ct);
                             }
                             else
                             {
-                                botClient.SendMessage(chat, "Данного номера книги нет в списке.");
+                                await botClient.SendMessage(chat, "Данного номера книги нет в списке.", ct);
                             }
                         }
                         else
                         {
-                            botClient.SendMessage(chat, "Неверный формат номера задачи.");
+                            await botClient.SendMessage(chat, "Неверный формат номера задачи.", ct);
                         }
                         break;
                     case string s when s.StartsWith("/completetask "):
@@ -182,25 +186,25 @@ namespace MyOtusProject.Project.TelegramBot
                             if (taskToComplete != null)
                             {
                                 _toDoService.MarkCompleted(taskId);
-                                botClient.SendMessage(chat, $"Книга '{taskToComplete.Name}' отмечена как прочитанная.");
+                                await botClient.SendMessage(chat, $"Книга '{taskToComplete.Name}' отмечена как прочитанная.", ct);
                             }
                             else
                             {
-                                botClient.SendMessage(chat, "Книга с указанным ID не найдена.");
+                                await botClient.SendMessage(chat, "Книга с указанным ID не найдена.", ct);
                             }
                         }
                         else
                         {
-                            botClient.SendMessage(chat, "Неверный формат ID книги. ID должен быть в формате GUID.");
+                            await botClient.SendMessage(chat, "Неверный формат ID книги. ID должен быть в формате GUID.", ct);
                         }
                         break;
                     case "/report":
                         if (existingUser != null)
                         {
                             var stats = _reportService.GetUserStats(existingUser.UserId);
-                            botClient.SendMessage(chat,
+                            await botClient.SendMessage(chat,
                                 $"Статистика по задачам на {stats.generatedAt:dd.MM.yyyy HH:mm:ss}. " +
-                                $"Всего: {stats.total}; Завершенных: {stats.completed}; Активных: {stats.active}");
+                                $"Всего: {stats.total}; Завершенных: {stats.completed}; Активных: {stats.active}", ct);
                         }
                         break;
                     case string s when s.StartsWith("/find "):
@@ -212,25 +216,25 @@ namespace MyOtusProject.Project.TelegramBot
                         var foundTasks = _toDoService.Find(existingUser, namePrefix);
                         if (foundTasks.Count == 0)
                         {
-                            botClient.SendMessage(chat, $"Не найдено книг, начинающихся с '{namePrefix}'.");
+                            await botClient.SendMessage(chat, $"Не найдено книг, начинающихся с '{namePrefix}'.", ct);
                         }
                         else
                         {
-                            botClient.SendMessage(chat, $"\nНайденные книги, начинающиеся с '{namePrefix}':");
+                            await botClient.SendMessage(chat, $"\nНайденные книги, начинающиеся с '{namePrefix}':", ct);
                             foreach (var task in foundTasks)
                             {
                                 var state = task.State == ToDoItemState.Active ? "(Active)" : "(Completed)";
-                                botClient.SendMessage(chat, $"{state} {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}");
+                                await botClient.SendMessage(chat, $"{state} {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}", ct);
                             }
                         }
                         break;
                     case "/exit":
-                        botClient.SendMessage(chat, "Завершение работы программы.");
+                        await botClient.SendMessage(chat, "Завершение работы программы. Нажмите Ctrl + C для остановки бота.", ct);
                         break;
                     default:
-                        botClient.SendMessage(chat, $"Приветствую, {existingUser.TelegramUserName}! Список доступных команд:" +
+                        await botClient.SendMessage(chat, $"Приветствую, {existingUser.TelegramUserName}! Список доступных команд:" +
                                 "\n/start \n/help \n/info \n/addtask \n/showtasks \n/showalltasks \n/removetask " +
-                                "\n/completetask \n/report \n/find \n/exit");
+                                "\n/completetask \n/report \n/find \n/exit", ct);
                         break;
                 }
             }
@@ -252,7 +256,7 @@ namespace MyOtusProject.Project.TelegramBot
             }
             catch (Exception ex)
             {
-                botClient.SendMessage(update.Message.Chat, ex.Message);
+                await HandleErrorAsync(botClient, ex, ct);
             }
         }
     }
