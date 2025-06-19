@@ -16,12 +16,12 @@ namespace MyOtusProject.Project.Core.Services
         {
             _userRepository = userRepository;
         }
-        public ToDoUser? GetUser(long telegramUserId)
+        public async Task<ToDoUser?> GetUser(long telegramUserId, CancellationToken ct)
         {
-            return _userRepository.GetUserByTelegramUserId(telegramUserId);
+            return await _userRepository.GetUserByTelegramUserId(telegramUserId, ct);
         }
 
-        public ToDoUser RegisterUser(long telegramUserId, string telegramUserName)
+        public async Task<ToDoUser> RegisterUser(long telegramUserId, string telegramUserName, CancellationToken ct)
         {
             var newUser = new ToDoUser
             {
@@ -30,7 +30,7 @@ namespace MyOtusProject.Project.Core.Services
                 TelegramUserName = telegramUserName,
                 RegisteredAt = DateTime.UtcNow
             };
-            _userRepository.Add(newUser);
+            await _userRepository.Add(newUser, ct);
             return newUser;
         }
     }

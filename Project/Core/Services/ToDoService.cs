@@ -23,15 +23,16 @@ namespace MyOtusProject.Project.Core.Services
             _maxTaskCount = maxTaskCount;
             _maxTaskLength = maxTaskLength;
         }
-        public ToDoItem Add(ToDoUser user, string name)
+        public async Task<ToDoItem> Add(ToDoUser user, string name, CancellationToken ct)
         {
-            if (_repository.CountActive(user.UserId) >= _maxTaskCount)
+            var activeCount = await _repository.CountActive(user.UserId, ct);
+            if (activeCount >= _maxTaskCount)
                 throw new TaskCountLimitException(_maxTaskCount);
 
             if (name.Length > _maxTaskLength)
                 throw new TaskLengthLimitException(name.Length, _maxTaskLength);
 
-            if (_repository.ExistsByName(user.UserId, name))
+            if (await _repository.ExistsByName(user.UserId, name, ct))
                 throw new DuplicateTaskException(name);
 
             var newTask = new ToDoItem
@@ -42,40 +43,39 @@ namespace MyOtusProject.Project.Core.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-
-            _repository.Add(newTask);
+            await _repository.Add(newTask, ct);
             return newTask;
         }
 
-        public void Delete(Guid id)
+        public Task Delete(Guid id, CancellationToken ct)
         {
-            _repository.Delete(id);
+           return _repository.Delete(id, ct);
         }
 
-        public IReadOnlyList<ToDoItem> GetActiveByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetActiveByUserId(Guid userId, CancellationToken ct)
         {
-            return _repository.GetActiveByUserId(userId);
+            return _repository.GetActiveByUserId(userId, ct);
         }
 
-        public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken ct)
         {
-            return _repository.GetAllByUserId(userId);
+            return _repository.GetAllByUserId(userId, ct);
         }
 
-        public void MarkCompleted(Guid id)
+        public async Task MarkCompleted(Guid id, CancellationToken ct)
         {
-            var task = _repository.Get(id);
+            var task = await _repository.Get(id, ct);
             if (task != null)
             {
                 task.State = ToDoItemState.Completed;
                 task.StateChangedAt = DateTime.UtcNow;
-                _repository.Update(task);
+                await _repository.Update(task, ct);
             }
         }
 
-        public IReadOnlyList<ToDoItem> Find(ToDoUser user, string namePrefix)
+        public async Task<IReadOnlyList<ToDoItem>> Find(ToDoUser user, string namePrefix, CancellationToken ct)
         {
-            return _repository.Find(user.UserId, task => task.Name.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase));
+            return await _repository.Find(user.UserId, task => task.Name.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase), ct);
         }
     }
 }

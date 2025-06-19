@@ -11,19 +11,20 @@ namespace MyOtusProject.Project.Infrastructure.DataAccess
     internal class InMemoryUserRepository : IUserRepository
     {
         private readonly List<ToDoUser> _users = new List<ToDoUser>();
-        public void Add(ToDoUser user)
+        public Task Add(ToDoUser user, CancellationToken ct)
         {
             _users.Add(user);
+            return Task.CompletedTask;
         }
 
-        public ToDoUser? GetUser(Guid userId)
+        public Task <ToDoUser?> GetUser(Guid userId, CancellationToken ct)
         {
-            return _users.FirstOrDefault(x => x.UserId == userId);
+            return Task.FromResult(_users.FirstOrDefault(x => x.UserId == userId));
         }
 
-        public ToDoUser? GetUserByTelegramUserId(long telegramUserId)
+        public Task<ToDoUser?> GetUserByTelegramUserId(long telegramUserId, CancellationToken ct)
         {
-            return _users.FirstOrDefault(x => x.TelegramUserId == telegramUserId);
+            return Task.FromResult(_users.FirstOrDefault(x => x.TelegramUserId == telegramUserId));
         }
     }
 }

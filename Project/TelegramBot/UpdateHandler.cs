@@ -56,7 +56,7 @@ namespace MyOtusProject.Project.TelegramBot
 
         private async Task ShowTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user, CancellationToken ct)
         {
-            var activeTasks = _toDoService.GetActiveByUserId(user.UserId);
+            var activeTasks = await _toDoService.GetActiveByUserId(user.UserId, ct);
 
             if (activeTasks.Count == 0)
             {
@@ -75,7 +75,7 @@ namespace MyOtusProject.Project.TelegramBot
 
         private async Task ShowAllTasksList(ITelegramBotClient botClient, Chat chat, ToDoUser user, CancellationToken ct)
         {
-            var allTasks = _toDoService.GetAllByUserId(user.UserId);
+            var allTasks = await _toDoService.GetAllByUserId(user.UserId, ct);
 
             if (allTasks.Count == 0)
             {
@@ -110,7 +110,7 @@ namespace MyOtusProject.Project.TelegramBot
                 var input = message.Text;
                 var user = message.From;
 
-                var existingUser = _userService.GetUser(user.Id);
+                var existingUser = await _userService.GetUser(user.Id, ct);
 
                 if (existingUser == null && input != "/start" && input != "/help" && input != "/info")
                 {
@@ -122,7 +122,7 @@ namespace MyOtusProject.Project.TelegramBot
                 switch (input)
                 {
                     case "/start":
-                        var registeredUser = _userService.RegisterUser(user.Id, user.Username ?? "Unknown");
+                        var registeredUser = await _userService.RegisterUser(user.Id, user.Username ?? "Unknown", ct);
                         await botClient.SendMessage(chat, $"Добро пожаловать, {registeredUser.TelegramUserName}! Вы успешно зарегистрированы.", ct);
                         break;
                     case "/help":
@@ -137,7 +137,7 @@ namespace MyOtusProject.Project.TelegramBot
                         var taskName = input.Substring("/addtask ".Length).Trim();
                         ValidateString(taskName);
 
-                        var newTask = _toDoService.Add(existingUser, taskName);
+                        var newTask = await _toDoService.Add(existingUser, taskName, ct);
                         await botClient.SendMessage(chat, $"Книга '{newTask.Name}' добавлена в список.", ct);
                         break;
                     case "/showtasks":
@@ -154,11 +154,11 @@ namespace MyOtusProject.Project.TelegramBot
                         var inputNumber = input.Substring("/removetask ".Length).Trim();
                         if (int.TryParse(inputNumber, out int taskNumber))
                         {
-                            var activeTasks = _toDoService.GetActiveByUserId(existingUser.UserId).ToList();
+                            var activeTasks = (await _toDoService.GetActiveByUserId(existingUser.UserId, ct)).ToList();
                             if (taskNumber > 0 && taskNumber <= activeTasks.Count)
                             {
                                 var taskToRemove = activeTasks[taskNumber - 1];
-                                _toDoService.Delete(taskToRemove.Id);
+                                await _toDoService.Delete(taskToRemove.Id, ct);
                                 await botClient.SendMessage(chat, $"Книга '{taskToRemove.Name}' удалена из списка.", ct);
                             }
                             else
@@ -177,7 +177,7 @@ namespace MyOtusProject.Project.TelegramBot
                         var taskIdInput = input.Substring("/completetask ".Length).Trim();
                         if (Guid.TryParse(taskIdInput, out Guid taskId))
                         {
-                            var allTasks = _toDoService.GetAllByUserId(existingUser.UserId);
+                            var allTasks = await _toDoService.GetAllByUserId(existingUser.UserId, ct);
                             ToDoItem taskToComplete = null;
 
                             foreach (var task in allTasks)
@@ -191,7 +191,7 @@ namespace MyOtusProject.Project.TelegramBot
 
                             if (taskToComplete != null)
                             {
-                                _toDoService.MarkCompleted(taskId);
+                                await _toDoService.MarkCompleted(taskId, ct);
                                 await botClient.SendMessage(chat, $"Книга '{taskToComplete.Name}' отмечена как прочитанная.", ct);
                             }
                             else
@@ -207,7 +207,7 @@ namespace MyOtusProject.Project.TelegramBot
                     case "/report":
                         if (existingUser != null)
                         {
-                            var stats = _reportService.GetUserStats(existingUser.UserId);
+                            var stats = await _reportService.GetUserStats(existingUser.UserId, ct);
                             await botClient.SendMessage(chat,
                                 $"Статистика по задачам на {stats.generatedAt:dd.MM.yyyy HH:mm:ss}. " +
                                 $"Всего: {stats.total}; Завершенных: {stats.completed}; Активных: {stats.active}", ct);
@@ -219,7 +219,7 @@ namespace MyOtusProject.Project.TelegramBot
                         var namePrefix = input.Substring("/find ".Length).Trim();
                         ValidateString(namePrefix);
 
-                        var foundTasks = _toDoService.Find(existingUser, namePrefix);
+                        var foundTasks = await _toDoService.Find(existingUser, namePrefix, ct);
                         if (foundTasks.Count == 0)
                         {
                             await botClient.SendMessage(chat, $"Не найдено книг, начинающихся с '{namePrefix}'.", ct);

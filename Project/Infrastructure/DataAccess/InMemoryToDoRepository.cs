@@ -11,48 +11,50 @@ namespace MyOtusProject.Project.Infrastructure.DataAccess
     internal class InMemoryToDoRepository : IToDoRepository
     {
         private readonly List<ToDoItem> _items = new List<ToDoItem>();
-        public void Add(ToDoItem item)
+        public Task Add(ToDoItem item, CancellationToken ct)
         {
             _items.Add(item);
+            return Task.CompletedTask;
         }
 
-        public int CountActive(Guid userId)
+        public Task<int> CountActive(Guid userId, CancellationToken ct)
         {
-            return _items.Count(x => x.User.UserId == userId && x.State == ToDoItemState.Active);
+            return Task.FromResult(_items.Count(x => x.User.UserId == userId && x.State == ToDoItemState.Active));
         }
 
-        public void Delete(Guid id)
+        public Task Delete(Guid id, CancellationToken ct)
         {
             var item = _items.FirstOrDefault(x => x.Id == id);
             if (item != null)
             {
                 _items.Remove(item);
             }
+            return Task.CompletedTask;
         }
 
-        public bool ExistsByName(Guid userId, string name)
+        public Task<bool> ExistsByName(Guid userId, string name, CancellationToken ct)
         {
-            return _items.Any(x => x.User.UserId == userId &&
-                              x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            return Task.FromResult(_items.Any(x => x.User.UserId == userId &&
+                              x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
         }
 
-        public ToDoItem? Get(Guid id)
+        public Task<ToDoItem?> Get(Guid id, CancellationToken ct)
         {
-            return _items.FirstOrDefault(x => x.Id == id);
+            return Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
         }
 
-        public IReadOnlyList<ToDoItem> GetActiveByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetActiveByUserId(Guid userId, CancellationToken ct)
         {
-            return _items.Where(x => x.User.UserId == userId &&
-                               x.State == ToDoItemState.Active).ToList().AsReadOnly();
+            return Task.FromResult<IReadOnlyList<ToDoItem>>(_items.Where(x => x.User.UserId == userId &&
+                               x.State == ToDoItemState.Active).ToList().AsReadOnly());
         }
 
-        public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken ct)
         {
-            return _items.Where(x => x.User.UserId == userId).ToList().AsReadOnly();
+            return Task.FromResult <IReadOnlyList<ToDoItem>>(_items.Where(x => x.User.UserId == userId).ToList().AsReadOnly());
         }
 
-        public void Update(ToDoItem item)
+        public Task Update(ToDoItem item, CancellationToken ct)
         {
             var existingItem = _items.FirstOrDefault(x => x.Id == item.Id);
             if (existingItem != null)
@@ -60,11 +62,12 @@ namespace MyOtusProject.Project.Infrastructure.DataAccess
                 _items.Remove(existingItem);
                 _items.Add(item);
             }
+            return Task.CompletedTask;
         }
 
-        public IReadOnlyList<ToDoItem> Find(Guid userId, Func<ToDoItem, bool> predicate)
+        public Task<IReadOnlyList<ToDoItem>> Find(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken ct)
         {
-            return _items.Where(x => x.User.UserId == userId).Where(predicate).ToList().AsReadOnly();
+            return Task.FromResult<IReadOnlyList<ToDoItem>>(_items.Where(x => x.User.UserId == userId).Where(predicate).ToList().AsReadOnly());
         }
     }
 }
