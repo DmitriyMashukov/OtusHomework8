@@ -12,8 +12,12 @@ using System.Xml.Linq;
 
 namespace MyOtusProject.Project.TelegramBot
 {
+    public delegate void MessageEventHandler(string message);
     internal class UpdateHandler : IUpdateHandler
     {
+        public event MessageEventHandler OnHandleUpdateStarted;
+        public event MessageEventHandler OnHandleUpdateCompleted;
+
         private readonly IUserService _userService;
         private readonly IToDoService _toDoService;
         private readonly IToDoReportService _reportService;
@@ -99,6 +103,8 @@ namespace MyOtusProject.Project.TelegramBot
             {
                 var message = update.Message;
                 if (message == null) return;
+
+                OnHandleUpdateStarted?.Invoke(message.Text);
 
                 var chat = message.Chat;
                 var input = message.Text;
@@ -237,6 +243,7 @@ namespace MyOtusProject.Project.TelegramBot
                                 "\n/completetask \n/report \n/find \n/exit", ct);
                         break;
                 }
+                OnHandleUpdateCompleted?.Invoke(message.Text);
             }
             catch (ArgumentException ex)
             {

@@ -19,6 +19,11 @@ class Program
 
         return number;
     }
+
+    private static void HandleUpdateStarted(string message) => Console.WriteLine($"Началась обработка сообщения '{message}'");
+
+    private static void HandleUpdateCompleted(string message) => Console.WriteLine($"Закончилась обработка сообщения '{message}'");
+
     static async Task Main(string[] args)
     {
         try
@@ -38,9 +43,21 @@ class Program
             var toDoService = new ToDoService(todoRepository, maxTaskCount, maxTaskLength);
             var reportService = new ToDoReportService(todoRepository);
             var handler = new UpdateHandler(userService, toDoService, reportService);
-            botClient.StartReceiving(handler, cts.Token);
+            
 
-            Console.ReadLine();
+            handler.OnHandleUpdateStarted += HandleUpdateStarted;
+            handler.OnHandleUpdateCompleted += HandleUpdateCompleted;
+
+            try
+            {
+                botClient.StartReceiving(handler, cts.Token);
+                Console.ReadLine();
+            }
+            finally
+            {
+                handler.OnHandleUpdateStarted -= HandleUpdateStarted;
+                handler.OnHandleUpdateCompleted -= HandleUpdateCompleted;
+            }
 
             cts.Cancel();
         }
