@@ -19,7 +19,12 @@ class Program
 
         return number;
     }
-    static void Main(string[] args)
+
+    private static void HandleUpdateStarted(string message) => Console.WriteLine($"Началась обработка сообщения '{message}'");
+
+    private static void HandleUpdateCompleted(string message) => Console.WriteLine($"Закончилась обработка сообщения '{message}'");
+
+    static async Task Main(string[] args)
     {
         try
         {
@@ -29,6 +34,8 @@ class Program
             Console.WriteLine("Введите максимально допустимую длину задачи от 1 до 100.");
             var maxTaskLength = ParseAndValidateInt(Console.ReadLine(), 1, 100);
 
+            var cts = new CancellationTokenSource();
+
             var botClient = new ConsoleBotClient();
             var userRepository = new InMemoryUserRepository();
             var todoRepository = new InMemoryToDoRepository();
@@ -36,7 +43,23 @@ class Program
             var toDoService = new ToDoService(todoRepository, maxTaskCount, maxTaskLength);
             var reportService = new ToDoReportService(todoRepository);
             var handler = new UpdateHandler(userService, toDoService, reportService);
-            botClient.StartReceiving(handler);
+            
+
+            handler.OnHandleUpdateStarted += HandleUpdateStarted;
+            handler.OnHandleUpdateCompleted += HandleUpdateCompleted;
+
+            try
+            {
+                botClient.StartReceiving(handler, cts.Token);
+                Console.ReadLine();
+            }
+            finally
+            {
+                handler.OnHandleUpdateStarted -= HandleUpdateStarted;
+                handler.OnHandleUpdateCompleted -= HandleUpdateCompleted;
+            }
+
+            cts.Cancel();
         }
         catch (Exception ex)
         {
